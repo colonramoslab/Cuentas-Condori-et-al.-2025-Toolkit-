@@ -71,3 +71,4 @@ N2_6 <- read.csv("N2_6.csv")
 #  7: replace with "end minute" for the analysis time window
 #  N2_1...N2_6: replace with an arbitrary number of assays; here, 6 are used, requiring 6 pairs of salt peak coordinates in the N2_peaks vector.
 mean_dist_time_window_results <- mean_dist_time_window_analysis(N2_peaks, 3.75, 6, 7, N2_1, N2_2, N2_3, N2_4, N2_5, N2_6)
+```
