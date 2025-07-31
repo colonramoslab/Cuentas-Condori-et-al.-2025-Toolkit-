@@ -1,0 +1,73 @@
+``` {r}
+#Track-modifying function. Nothing changes until a worm track first appears, but then each subsequent gap in the data is filled by duplicating the last observed value. One consequence is that a worm “freezes” at the boundary once it leaves the arena.
+fill_last_value <- function(x) {
+  for(i in 2:length(x)) {
+    if(is.na(x[i])) {
+      x[i] <- x[i - 1]
+    }
+  }
+  return(x)
+}
+
+#Function for obtaining mean worm distance over a given time period
+mean_dist_time_window_analysis <- function(peaks, frame_rate, minute_start, minute_end, ...) {
+  runs <- list(...)
+  min_frames <- min(sapply(runs, nrow))
+  runs <- lapply(runs, function(df) df[1:min_frames, ])
+  number_of_runs <- sum(sapply(runs, is.data.frame))
+  
+  #Removing frame and time columns, assuming same number of frames for each run
+  for (i in 1:number_of_runs) {
+    runs[[i]] <- runs[[i]][, -c(1, 2)]
+    #Filling empty values
+    for (j in seq_along(runs[[i]])) {
+      runs[[i]][,j] <- fill_last_value(runs[[i]][,j])
+    }
+  }
+  
+  #Creating empty list of #_of_frames * (ncol/2) data frames for each input
+  distances <- lapply(runs, function(df) {
+    data.frame(matrix(NA, nrow = min_frames, ncol = ncol(df)/2))
+  })
+
+  #Getting distances from peak
+  for (i in 1:number_of_runs) {
+    for (j in 1:ncol(distances[[i]])) {
+      distances[[i]][,j] <- sqrt((runs[[i]][,2*j-1]-peaks[2*i-1])^2 + (runs[[i]][,2*j]-peaks[2*i])^2)
+    }
+  }
+  distances <- do.call(cbind, distances)
+  
+  #Extracting values in specified time window
+  frame_start = 1 + (minute_start * frame_rate * 60)
+  frame_end = minute_end * frame_rate * 60
+  distances_time_window <- distances[frame_start:frame_end, ]
+  
+  #Calculating mean for each worm and scaling from um to mm
+  mean_distances <- colMeans(distances_time_window, na.rm = TRUE) / (10^3)
+  
+  #Creating output file
+  distances_file_name <- paste(as.character(substitute(list(...)))[-1][1], "_", minute_start, "-", minute_end, "_mean_distances.txt", sep = "")
+  write(mean_distances, file = distances_file_name, ncolumns = 1)    
+}
+```
+
+``` {r}
+#Before running code, specify data set locations and names, copy peak locations into vector, then update the parameter names in the single line of code at bottom.
+#Notes: requires a constant number of frames; requires two lines of WormLab formatting to be removed from the top of each CSV.
+N2_peaks <- c(x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, x6, y6)
+
+N2_1 <- read.csv("N2_1.csv")
+N2_2 <- read.csv("N2_2.csv")
+N2_3 <- read.csv("N2_3.csv")
+N2_4 <- read.csv("N2_4.csv")
+N2_5 <- read.csv("N2_5.csv")
+N2_6 <- read.csv("N2_6.csv")
+
+#Duplicate this line for each analysis being performed. Parameter meanings:
+#  N2_peaks: replace with any vector containing coordinates for the salt peak of each assay being analyzed
+#  3.75: replace with the acquisition frame rate (fps)
+#  6: replace with "start minute" for the analysis time window
+#  7: replace with "end minute" for the analysis time window
+#  N2_1...N2_6: replace with an arbitrary number of assays; here, 6 are used, requiring 6 pairs of salt peak coordinates in the N2_peaks vector.
+mean_dist_time_window_results <- mean_dist_time_window_analysis(N2_peaks, 3.75, 6, 7, N2_1, N2_2, N2_3, N2_4, N2_5, N2_6)
